@@ -1,0 +1,63 @@
+name: Build, Cache, Deploy, and Publish Frontend
+
+on:
+  push:
+    paths:
+      - 'frontend/**'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      APP_NAME: frontend
+      DOCKER_USERNAME: <docker_username>
+      GITOPS_REPO: github.com/<your-github-username>/DevOpsLab21.git
+      GITOPS_DIR: DevOpsLab21
+      IMAGE_TAG: ${{ github.sha }}
+
+    steps:
+    - name: Checkout frontend source
+      uses: actions/checkout@v4
+      
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ env.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build and push Docker image with caching
+      uses: docker/build-push-action@v6
+      with:
+        context: ./${{ env.APP_NAME }}
+        push: true
+        tags: ${{ env.DOCKER_USERNAME }}/${{ env.APP_NAME }}:${{ env.IMAGE_TAG }}
+        cache-from: type=registry,ref=${{ env.DOCKER_USERNAME }}/${{ env.APP_NAME }}:buildcache
+        cache-to: type=registry,ref=${{ env.DOCKER_USERNAME }}/${{ env.APP_NAME }}:buildcache,mode=max
+        outputs: type=docker,dest=/tmp/${{ env.APP_NAME }}.tar
+
+    - name: Upload Docker image as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.APP_NAME }}-image-${{ env.IMAGE_TAG }}
+        path: /tmp/${{ env.APP_NAME }}.tar
+
+    - name: Clone GitOps repo
+      run: git clone https://x-access-token:${{ secrets.GH_TOKEN }}@$GITOPS_REPO
+
+    - name: Update image tag in kustomization.yaml
+      working-directory: ${{ env.GITOPS_DIR }}
+      run: |
+        sed -i "/name: $DOCKER_USERNAME\/$APP_NAME/{n;s|newTag: .*|newTag: $IMAGE_TAG|}" apps/devopslab21/kustomization.yaml
+
+    - name: Commit and push update
+      working-directory: ${{ env.GITOPS_DIR }}
+      run: |
+        git config user.name "GitHub Actions Bot"
+        git config user.email "ci@github.com"
+        git add apps/devopslab21/kustomization.yaml
+        git commit -m "chore($APP_NAME): update image to $IMAGE_TAG"
+        git push https://x-access-token:${{ secrets.GH_TOKEN }}@$GITOPS_REPO HEAD:main

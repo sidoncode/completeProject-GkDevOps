@@ -1,0 +1,49 @@
+name: Build and Deploy Frontend
+
+on:
+  push:
+    paths:
+      - 'frontend/**'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      APP_NAME: frontend
+      DOCKER_USERNAME: <docker_username>
+      GITOPS_REPO: github.com/<your-github-username>/DevOpsLab21.git
+      GITOPS_DIR: DevOpsLab21
+      IMAGE_TAG: ${{ github.sha }}
+
+    steps:
+    - name: Checkout frontend source
+      uses: actions/checkout@v4
+      
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ env.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Build and push Docker image
+      run: |
+        docker build -t $DOCKER_USERNAME/$APP_NAME:$IMAGE_TAG ./frontend
+        docker push $DOCKER_USERNAME/$APP_NAME:$IMAGE_TAG
+
+    - name: Clone GitOps repo
+      run: git clone https://x-access-token:${{ secrets.GH_TOKEN }}@$GITOPS_REPO
+
+    - name: Update image tag in kustomization.yaml
+      working-directory: ${{ env.GITOPS_DIR }}
+      run: |
+        sed -i "/name: $DOCKER_USERNAME\/$APP_NAME/{n;s|newTag: .*|newTag: $IMAGE_TAG|}" apps/devopslab21/kustomization.yaml
+
+    - name: Commit and push update
+      working-directory: ${{ env.GITOPS_DIR }}
+      run: |
+        git config user.name "GitHub Actions Bot"
+        git config user.email "ci@github.com"
+        git add apps/devopslab21/kustomization.yaml
+        git commit -m "chore($APP_NAME): update image to $IMAGE_TAG"
+        git push https://x-access-token:${{ secrets.GH_TOKEN }}@$GITOPS_REPO HEAD:main

@@ -1,0 +1,9 @@
+resources:
+  - frontend-deployment.yaml
+  - backend-deployment.yaml
+
+images:
+  - name: <docker_username>/frontend
+    newTag: v1
+  - name: <docker_username>/backend
+    newTag: v1

@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>DevOps Lab 20 Frontend</title>
+</head>
+<body>
+  <h1 style="color:black">What is your name?</h1>
+  <form action="/api" method="POST">
+    <label for="name">Name:</label>
+    <input type="text" name="name" id="name" required>
+    <button type="submit">Send</button>
+  </form>
+</body>
+</html>

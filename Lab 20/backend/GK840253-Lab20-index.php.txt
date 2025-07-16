@@ -1,0 +1,7 @@
+<?php
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+$name = htmlspecialchars($_POST['name']);
+echo "Hello, $name. Welcome to DevOps Lab 20!";
+} else {
+echo "Please submit a POST request from the form.";
+}
